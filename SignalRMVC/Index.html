@@ -1,0 +1,132 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>SignalR - tekenen</title>
+</head>
+<body>
+    <div id="sketchpadapp">
+        <div class="rightside">
+            <input type="submit" value="Canvas leegmaken" id="clear_button" />
+            <br />
+            <canvas id="sketchpad" height="300" width="400"></canvas>
+        </div>
+    </div>
+    <div style="clear:both" id="msg"></div>
+    <script src="Scripts/jquery-1.6.4.min.js"></script>
+    <script src="Scripts/jquery.signalR-2.2.2.min.js"></script>
+    <script src="/signalr/hubs"></script> <!--dynamisch gemaakte scriptmap voor SignalR-->
+    <script type="text/javascript">
+        // Variabele voor SignalR connectie
+        var DOT;
+        // Variabelen voor het canvas en de canvas2dcontext
+        var canvas, ctx;
+        // Variabelen voor bijhouden muisposities en muisknop
+        var mouseX, mouseY, mouseDown = 0;
+        // Tekent een stip op de aangegeven positie op het canvas
+        // Parameters: x positie, y positie, afmetingen van de stip
+        function drawDot(x, y, size) {
+            // opvulstijl we gebruiken zwart, zonder transparantie
+            ctx.fillStyle = "rgba(0,0,0,1)";
+            // een gevulde cirkel tekenen
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Canvas leegmaken
+        function cleanCanvas() {
+            clearCanvas();
+            DOT.server.clearCanvas();
+        }
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        // Indrukken van de muisknop detecteren en stip tekenen
+        function sketchpad_mouseDown() {
+            mouseDown = 1;
+            DOT.server.updateCanvas(mouseX, mouseY);
+        }
+        // Loslaten van de muisknop detecteren
+        function sketchpad_mouseUp() {
+            mouseDown = 0;
+        }
+        // Bewegen van de muis detecteren en stippen tekenen als de knop is ingedrukt
+        function sketchpad_mouseMove(e) {
+            // Muiscoordinaten updaten bij beweging.
+            getMousePos(e);
+            // Stip tekenen als muisknop is ingedrukt
+            if (mouseDown == 1) {
+                DOT.server.updateCanvas(mouseX, mouseY);
+            }
+        }
+        // Muispositie opvragen, we tonen de positie in een divisie
+        function getMousePos(e) {
+            if (!e)
+                var e = event;
+            if (e.offsetX) {
+                mouseX = e.offsetX;
+                mouseY = e.offsetY;
+            }
+            else if (e.layerX) {
+                mouseX = e.layerX;
+                mouseY = e.layerY;
+            }
+            // voor IE: decimale coordinaten omzetten naar ints
+            mouseX = parseInt(mouseX);
+            mouseY = parseInt(mouseY);
+            $("#msg").html("X:" + mouseX + " Y:" + mouseY);
+        }
+        // Canvas instellen en event-handlers installeren als pagina geladen is
+        $(document).ready(function () {
+            console.log('start')
+            //SignalR Connection maken
+            DOT = $.connection.drawDot;
+            //SignalR hub starten en bericht tonen
+            $.connection.hub.start().done(function () { $('#msg').html('verbonden'); });
+            //Functie aangeroepen van DrawDot Server
+            DOT.client.updateDot = function (x, y) {
+                drawDot(x, y, 8);
+            };
+            //Functie aangeroepen van DrawDot Server
+            DOT.client.clearCanvas = function (x, y) {
+                clearCanvas();
+            };
+            //Canvas-element referencen
+            //canvas = document.getElementById('sketchpad');
+            //met JQuery geen native DOM-object, zie http://stackoverflow.com/questions/11574038/why-canvas-doent-work-with-jquery-selector
+            canvas = $("#sketchpad")[0];
+            // als browser de canvas-tag ondersteunt de 2d-context opvragen
+            if (canvas.getContext)
+                ctx = canvas.getContext('2d');
+            // bij geldige context de eventhandlers installeren
+            if (ctx) {
+                $("#sketchpad").mousedown(sketchpad_mouseDown);
+                $("#sketchpad").mousemove(sketchpad_mouseMove);
+                $(window).mouseup(sketchpad_mouseUp);
+                $("#clear_button").click(cleanCanvas);
+            }
+            else {
+                document.write("Browser niet ondersteund!!");
+            }
+        });
+    </script>
+    <style>
+        .rightside {
+            float: left;
+            margin-left: 10px;
+        }
+
+        #sketchpad {
+            float: left;
+            border: 2px solid #888;
+            border-radius: 4px;
+            position: relative; /* voor FireFox */
+        }
+
+        #clear_button {
+            padding: 10px;
+            margin-bottom: 5px;
+        }
+    </style>
+</body>
+</html>
